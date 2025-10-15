@@ -1,24 +1,24 @@
 // service_worker.js
 
 async function captureAllTabs() {
-    // Get all windows with their tabs
+    // get all windows with their tabs
     const windows = await chrome.windows.getAll({ populate: true, windowTypes: ["normal"] });
   
     const snapshots = [];
   
     for (const win of windows) {
+      // captures all the separate windows
       const winInfo = {
         windowId: win.id,
         focused: win.focused,
-        // Position/size can be null on some platforms; handle defensively
         bounds: { left: win.left, top: win.top, width: win.width, height: win.height },
         tabs: []
       };
-  
+      
+      // iterates through every tab in the window and adds each one to the winInfo array
       for (const tab of (win.tabs || [])) {
         if (!tab.id || !tab.url || tab.url.startsWith("chrome://")) continue;
   
-        // Inject capture script; returns an array of results (one per frame execution)
         const [result] = await chrome.scripting.executeScript({
           target: { tabId: tab.id, allFrames: false },
           files: ["capture.js"]
@@ -31,25 +31,24 @@ async function captureAllTabs() {
           title: tab.title,
           url: tab.url,
           favIconUrl: tab.favIconUrl,
-          ...payload // { scrollY, scrollX, forms }
+          ...payload
         });
       }
   
       snapshots.push(winInfo);
     }
   
-    // Persist snapshot with a timestamp
+    // add a snapshot to the time at which the chrome extension button is clicked
     const key = `snapshot:${Date.now()}`;
     await chrome.storage.local.set({ [key]: snapshots });
   
-    // For convenience, keep a "latest" pointer
     await chrome.storage.local.set({ latestSnapshotKey: key });
   
     console.log("Captured snapshot:", key, snapshots);
     return { key, snapshots };
   }
   
-  // Toolbar button triggers a capture
+  // added a listener to the toolbar so that all the tabs are captured when the chrome extension is clicked
   chrome.action.onClicked.addListener(async () => {
     try {
       await captureAllTabs();
@@ -58,7 +57,7 @@ async function captureAllTabs() {
     }
   });
   
-  // Optional: expose restore via message
+  // can restore the tabs with a certain message
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     (async () => {
       if (msg?.type === "RESTORE_LATEST") {
@@ -68,6 +67,6 @@ async function captureAllTabs() {
         sendResponse({ ok: true, key: latestSnapshotKey, snapshots: data[latestSnapshotKey] });
       }
     })();
-    return true; // keep the message channel open for async sendResponse
+    return true;
   });
   
