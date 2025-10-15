@@ -14,24 +14,39 @@ async function captureAllTabs() {
         bounds: { left: win.left, top: win.top, width: win.width, height: win.height },
         tabs: []
       };
-      
+
       // iterates through every tab in the window and adds each one to the winInfo array
       for (const tab of (win.tabs || [])) {
-        if (!tab.id || !tab.url || tab.url.startsWith("chrome://")) continue;
-  
-        const [result] = await chrome.scripting.executeScript({
-          target: { tabId: tab.id, allFrames: false },
-          files: ["capture.js"]
-        }).catch(() => [undefined]);
-  
-        const payload = result?.result || null;
-  
+        // Skip restricted URLs that can't be scripted
+        if (!tab.id || !tab.url ||
+            tab.url.startsWith("chrome://") ||
+            tab.url.startsWith("chrome-extension://") ||
+            tab.url.startsWith("edge://") ||
+            tab.url.startsWith("about:")) {
+          continue;
+        }
+
+        let payload = null;
+        try {
+          const [result] = await chrome.scripting.executeScript({
+            target: { tabId: tab.id, allFrames: false },
+            files: ["capture.js"]
+          });
+          payload = result?.result || null;
+        } catch (err) {
+          console.warn(`Failed to capture tab ${tab.id} (${tab.url}):`, err.message);
+          // Continue without payload for this tab
+        }
+
         winInfo.tabs.push({
           tabId: tab.id,
           title: tab.title,
           url: tab.url,
           favIconUrl: tab.favIconUrl,
-          ...payload
+          index: tab.index, // preserve tab order
+          pinned: tab.pinned,
+          active: tab.active,
+          ...(payload || {})
         });
       }
   
