@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import "./dashboard.css";
 
 function Dashboard() {
   const [snapshots, setSnapshots] = useState([]);
@@ -40,15 +41,15 @@ function Dashboard() {
   if (error) return <p style={{ color: "red" }}>Error: {error}</p>;
 
   return (
-    <div style={styles.container}>
-      <h2 style={styles.heading}>📸 Snapshots</h2>
-
+    <div className="container">
+      <h2 className="heading">📸 Snapshots</h2>
+  
       {snapshots.length === 0 ? (
         <p>No snapshots found.</p>
       ) : (
-        <div style={styles.grid}>
+        <div className="grid">
           {snapshots.map((snapshot) => (
-            <div key={snapshot.id} style={styles.card}>
+            <div key={snapshot.id} className="card">
               <h3>{snapshot.title || "Untitled Snapshot"}</h3>
               <p><strong>ID:</strong> {snapshot.id}</p>
               <p><strong>Created at:</strong> {new Date(snapshot.created_at).toLocaleString()}</p>
@@ -60,27 +61,5 @@ function Dashboard() {
     </div>
   );
 }
-
-const styles = {
-  container: {
-    padding: "2rem",
-    fontFamily: "system-ui, sans-serif",
-  },
-  heading: {
-    marginBottom: "1.5rem",
-  },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-    gap: "1rem",
-  },
-  card: {
-    padding: "1rem",
-    borderRadius: "8px",
-    border: "1px solid #ddd",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-    backgroundColor: "#fff",
-  },
-};
 
 export default Dashboard;
