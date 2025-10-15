@@ -16,7 +16,8 @@
       "service_worker": "service_worker.js"
     },
     "action": {
-      "default_title": "Capture all tabs"
+      "default_title": "Capture all tabs",
+      "default_popup": "popup.html"
     }
   }
   
