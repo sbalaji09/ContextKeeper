@@ -1,0 +1,23 @@
+{
+    "name": "Tab Snapshot (scroll + form state)",
+    "description": "Capture all open tabs: URL, title, scroll position, and form values.",
+    "version": "1.0.0",
+    "manifest_version": 3,
+    "permissions": [
+      "tabs",
+      "scripting",
+      "storage",
+      "activeTab"
+    ],
+    "host_permissions": [
+      "<all_urls>"
+    ],
+    "background": {
+      "service_worker": "service_worker.js"
+    },
+    "action": {
+      "default_title": "Capture all tabs"
+    },
+    "icons": { "128": "icon128.png" }
+  }
+  
