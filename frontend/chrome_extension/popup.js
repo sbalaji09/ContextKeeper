@@ -29,24 +29,45 @@ async function refreshList() {
     list.appendChild(div);
   });
 
-  list.addEventListener("click", async (e) => {
-    const r = e.target.getAttribute("data-restore");
-    const d = e.target.getAttribute("data-del");
-    const s = e.target.getAttribute("data-sync");
-    if (r) await send("RESTORE_LATEST");          // restoring "latest" for simplicity
-    if (s) await send("SYNC_SNAPSHOT", { key: s });
-    if (d) { await send("DELETE_SNAPSHOT", { key: d }); await refreshList(); }
-  }, { once: true });
+  // Use event delegation - no need to remove/re-add listener
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  $("#capture").addEventListener("click", async () => { await send("CAPTURE_NOW"); await refreshList(); });
-  $("#restore").addEventListener("click", async () => { await send("RESTORE_LATEST"); });
+  $("#capture").addEventListener("click", async () => {
+    await send("CAPTURE_NOW");
+    await refreshList();
+  });
+
+  $("#restore").addEventListener("click", async () => {
+    await send("RESTORE_LATEST");
+  });
 
   $("#saveApi").addEventListener("click", async () => {
     const API_URL = $("#apiUrl").value.trim();
     const API_TOKEN = $("#apiToken").value.trim();
     await send("SET_API", { API_URL, API_TOKEN });
+    alert("API settings saved!");
+  });
+
+  // Event delegation for dynamically created snapshot list buttons
+  $("#list").addEventListener("click", async (e) => {
+    const r = e.target.getAttribute("data-restore");
+    const d = e.target.getAttribute("data-del");
+    const s = e.target.getAttribute("data-sync");
+
+    if (r) {
+      await send("RESTORE_LATEST");
+    } else if (s) {
+      const result = await send("SYNC_SNAPSHOT", { key: s });
+      if (result.ok) {
+        alert("Snapshot synced successfully!");
+      } else {
+        alert(`Sync failed: ${result.error}`);
+      }
+    } else if (d) {
+      await send("DELETE_SNAPSHOT", { key: d });
+      await refreshList();
+    }
   });
 
   // Prefill settings
