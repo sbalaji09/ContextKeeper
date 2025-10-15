@@ -1,25 +1,21 @@
 import React, { useState } from "react";
+import { supabase } from "./supabaseClient";
 import "./Login.css"; // reuse the same styles
 
 function SignUp({ onSuccess }) {
   const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const API_BASE =
-    import.meta?.env?.VITE_API_URL ||
-    process.env.REACT_APP_API_URL ||
-    "http://localhost:3000";
-
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
 
-    if (!name || !email || !password || !confirm) {
+    if (!username || !email || !password || !confirm) {
       setError("Please fill in all fields.");
       return;
     }
@@ -35,29 +31,50 @@ function SignUp({ onSuccess }) {
     try {
       setLoading(true);
 
-      const res = await fetch(`${API_BASE}/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
-        credentials: "include",
+      // Sign up with Supabase Auth
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username: username, // Store username in user metadata
+          },
+        },
       });
 
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Sign up failed (HTTP ${res.status})`);
+      if (signUpError) {
+        throw signUpError;
       }
 
-      const data = await res.json(); // expect { token, user }
-      const token = data?.token;
+      // After signup, insert user record into the users table
+      if (data.user) {
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert([
+            {
+              id: data.user.id, // Use Supabase auth user ID
+              username: username,
+              email: email,
+              password_hash: 'handled_by_supabase_auth', // Placeholder since Supabase handles passwords
+            },
+          ]);
 
-      if (token) localStorage.setItem("token", token);
+        if (insertError) {
+          console.error("Error inserting user into users table:", insertError);
+          // Don't throw - auth user was created successfully
+        }
+      }
 
+      // Notify parent or navigate
       if (typeof onSuccess === "function") {
         onSuccess(data);
       } else {
-        window.location.href = "/dashboard";
+        // Show success message and redirect
+        alert("Account created! Please check your email to verify your account.");
+        window.location.href = "/login";
       }
     } catch (err) {
+      console.error("Signup error:", err);
       setError(err.message || "Unable to sign up. Please try again.");
     } finally {
       setLoading(false);
@@ -77,13 +94,13 @@ function SignUp({ onSuccess }) {
         )}
 
         <label className="field">
-          <span className="field-label">Name</span>
+          <span className="field-label">Username</span>
           <input
             className="input"
             type="text"
-            placeholder="Ada Lovelace"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            placeholder="adalovelace"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             required
           />
         </label>

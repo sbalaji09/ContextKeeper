@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { supabase } from "./supabaseClient";
 import "./Login.css";
 
 function Login({ onSuccess }) {
@@ -8,9 +9,6 @@ function Login({ onSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // Change to your API base URL if different
-  const API_BASE = import.meta?.env?.VITE_API_URL || process.env.REACT_APP_API_URL || "http://localhost:3000";
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -25,29 +23,21 @@ function Login({ onSuccess }) {
     try {
       setLoading(true);
 
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-        credentials: "include", // keeps cookies if your API sets them
+      // Sign in with Supabase Auth
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      // Handle non-2xx
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Login failed (HTTP ${res.status})`);
+      if (signInError) {
+        throw signInError;
       }
 
-      const data = await res.json(); // expect { token, user }
-      const token = data?.token;
-
-      // Store token
-      if (token) {
-        if (remember) {
-          localStorage.setItem("token", token);
-        } else {
-          sessionStorage.setItem("token", token);
-        }
+      // Store session info based on remember me
+      if (remember) {
+        localStorage.setItem("supabase.auth.token", JSON.stringify(data.session));
+      } else {
+        sessionStorage.setItem("supabase.auth.token", JSON.stringify(data.session));
       }
 
       // Notify parent or navigate
@@ -58,7 +48,8 @@ function Login({ onSuccess }) {
         window.location.href = "/dashboard";
       }
     } catch (err) {
-      setError(err.message || "Unable to login. Please try again.");
+      console.error("Login error:", err);
+      setError(err.message || "Unable to login. Please check your credentials.");
     } finally {
       setLoading(false);
     }
@@ -130,7 +121,7 @@ function Login({ onSuccess }) {
         </button>
 
         <p className="footnote">
-          Don’t have an account? <a className="link" href="/signup">Create one</a>
+          Don't have an account? <a className="link" href="/signup">Create one</a>
         </p>
       </form>
     </div>
