@@ -1,6 +1,5 @@
-// capture.js (runs in the page)
 (function () {
-    // Build a stable-ish selector for an element
+    // added CSS selector that captures all the CSS elements from a specific page
     function getSelector(el) {
       if (!el) return null;
       if (el.id) return `#${CSS.escape(el.id)}`;
@@ -13,7 +12,7 @@
       return `${getSelector(parent)} > ${tag}:nth-of-type(${index})`;
     }
   
-    // Extract a serializable representation of a form control
+    // captures a single control's state by capturing different html elements
     function serializeControl(el) {
       const tag = el.tagName.toLowerCase();
       const type = (el.getAttribute("type") || "").toLowerCase();
@@ -53,7 +52,8 @@
   
       return base;
     }
-  
+    
+    // collects all relevant controls on the page
     function collectForms() {
       const controls = Array.from(document.querySelectorAll("input, textarea, select, [contenteditable=''], [contenteditable='true']"));
       const serialized = [];
@@ -63,7 +63,8 @@
       }
       return serialized;
     }
-  
+    
+    // builds the final payload for the window
     const payload = {
       scrollX: window.scrollX || document.documentElement.scrollLeft || 0,
       scrollY: window.scrollY || document.documentElement.scrollTop || 0,
