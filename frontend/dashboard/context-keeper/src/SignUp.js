@@ -31,7 +31,7 @@ function SignUp({ onSuccess }) {
     try {
       setLoading(true);
 
-      // Sign up with Supabase Auth
+      // Sign up with Supabase Auth (with auto-confirm if email confirmation is disabled)
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -39,6 +39,7 @@ function SignUp({ onSuccess }) {
           data: {
             username: username, // Store username in user metadata
           },
+          emailRedirectTo: undefined, // Disable email confirmation redirect
         },
       });
 
@@ -46,31 +47,38 @@ function SignUp({ onSuccess }) {
         throw signUpError;
       }
 
-      // After signup, insert user record into the users table
-      if (data.user) {
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert([
-            {
-              id: data.user.id, // Use Supabase auth user ID
-              username: username,
-              email: email,
-              password_hash: 'handled_by_supabase_auth', // Placeholder since Supabase handles passwords
-            },
-          ]);
-
-        if (insertError) {
-          console.error("Error inserting user into users table:", insertError);
-          // Don't throw - auth user was created successfully
-        }
+      if (!data.user) {
+        throw new Error("Signup failed - no user returned");
       }
 
-      // Notify parent or navigate
-      if (typeof onSuccess === "function") {
-        onSuccess(data);
+      // After signup, insert user record into the users table
+      const { error: insertError } = await supabase
+        .from('users')
+        .insert([
+          {
+            id: data.user.id, // Use Supabase auth user ID
+            username: username,
+            email: email,
+            password_hash: 'handled_by_supabase_auth', // Placeholder since Supabase handles passwords
+          },
+        ]);
+
+      if (insertError) {
+        console.error("Error inserting user into users table:", insertError);
+        // Don't throw - auth user was created successfully
+      }
+
+      // Check if user has a session (means auto-confirm is enabled)
+      if (data.session) {
+        // User is automatically logged in - redirect to dashboard
+        if (typeof onSuccess === "function") {
+          onSuccess(data);
+        } else {
+          window.location.href = "/dashboard";
+        }
       } else {
-        // Show success message and redirect
-        alert("Account created! Please check your email to verify your account.");
+        // Email confirmation is required - redirect to login with message
+        alert("Account created! Please check your email to verify your account before logging in.");
         window.location.href = "/login";
       }
     } catch (err) {
