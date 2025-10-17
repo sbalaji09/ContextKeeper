@@ -1,5 +1,13 @@
 // service_worker.js
 
+// Log when service worker starts
+console.log("🚀 Service worker loaded!");
+
+// Test that chrome APIs are available
+chrome.runtime.onInstalled.addListener(() => {
+  console.log("✅ Extension installed/updated");
+});
+
 async function captureAllTabs() {
   console.log("📸 Starting capture...");
 

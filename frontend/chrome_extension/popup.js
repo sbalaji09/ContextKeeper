@@ -34,12 +34,49 @@ async function refreshList() {
 
 document.addEventListener("DOMContentLoaded", async () => {
   $("#capture").addEventListener("click", async () => {
-    await send("CAPTURE_NOW");
-    await refreshList();
+    try {
+      console.log("Capture button clicked");
+      const button = $("#capture");
+      button.disabled = true;
+      button.textContent = "Capturing...";
+
+      const result = await send("CAPTURE_NOW");
+      console.log("Capture result:", result);
+
+      if (result && result.ok) {
+        button.textContent = "Captured!";
+        await refreshList();
+        setTimeout(() => {
+          button.textContent = "Capture";
+          button.disabled = false;
+        }, 1000);
+      } else {
+        alert(`Capture failed: ${result?.error || "Unknown error"}`);
+        button.textContent = "Capture";
+        button.disabled = false;
+      }
+    } catch (error) {
+      console.error("Capture error:", error);
+      alert(`Error: ${error.message}`);
+      const button = $("#capture");
+      button.textContent = "Capture";
+      button.disabled = false;
+    }
   });
 
   $("#restore").addEventListener("click", async () => {
-    await send("RESTORE_LATEST");
+    try {
+      console.log("Restore button clicked");
+      const result = await send("RESTORE_LATEST");
+      if (result && result.ok) {
+        window.close();
+      } else {
+        alert(`Restore failed: ${result?.error || "No snapshot found"}`);
+      }
+    } catch (error) {
+      console.error("Restore error:", error);
+      alert(`Error: ${error.message}`);
+    }
   });
 
   $("#saveApi").addEventListener("click", async () => {
