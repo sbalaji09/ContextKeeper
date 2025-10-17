@@ -56,7 +56,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const s = e.target.getAttribute("data-sync");
 
     if (r) {
-      await send("RESTORE_LATEST");
+      // Restore the specific snapshot by key
+      const result = await send("RESTORE_SNAPSHOT", { key: r });
+      if (result.ok) {
+        window.close(); // Close popup after restore
+      } else {
+        alert(`Restore failed: ${result.error}`);
+      }
     } else if (s) {
       const result = await send("SYNC_SNAPSHOT", { key: s });
       if (result.ok) {

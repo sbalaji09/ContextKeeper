@@ -1,8 +1,11 @@
 // service_worker.js
 
 async function captureAllTabs() {
+  console.log("📸 Starting capture...");
+
   // get all windows with their tabs
   const windows = await chrome.windows.getAll({ populate: true, windowTypes: ["normal"] });
+  console.log(`Found ${windows.length} windows to capture`);
 
   const snapshots = [];
 
@@ -69,6 +72,8 @@ async function captureAllTabs() {
 
 async function closeAllTabsAndOpenEmpty(windows) {
   try {
+    console.log("🗑️ Closing tabs and opening new empty tab...");
+
     // Collect all tab IDs to close from the captured windows
     const tabIdsToClose = [];
     let focusedWindowId = null;
@@ -84,36 +89,46 @@ async function closeAllTabsAndOpenEmpty(windows) {
       }
     }
 
+    console.log(`Planning to close ${tabIdsToClose.length} tabs`);
+
     // Before closing, create a new empty tab to prevent browser from closing
     // Create it in the focused window if possible
     let newTab;
     if (focusedWindowId) {
+      console.log(`Creating new tab in focused window ${focusedWindowId}`);
       newTab = await chrome.tabs.create({
         windowId: focusedWindowId,
-        url: "chrome://newtab/",
+        url: "about:blank",
         active: true
       });
     } else {
+      console.log("Creating new window with empty tab");
       // Create new window with empty tab
       const newWindow = await chrome.windows.create({
-        url: "chrome://newtab/",
+        url: "about:blank",
         focused: true
       });
       newTab = newWindow.tabs[0];
     }
 
+    console.log(`Created new tab with ID: ${newTab.id}`);
+
     // Wait a moment to ensure new tab is created
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     // Now close all the old tabs (excluding the new tab we just created)
     const tabsToRemove = tabIdsToClose.filter(id => id !== newTab.id);
+    console.log(`Closing ${tabsToRemove.length} tabs (excluding new tab ${newTab.id})`);
+
     if (tabsToRemove.length > 0) {
       await chrome.tabs.remove(tabsToRemove);
+      console.log("✅ Tabs closed successfully");
     }
 
-    console.log(`Closed ${tabsToRemove.length} tabs and opened new empty tab`);
+    console.log(`✅ Closed ${tabsToRemove.length} tabs and opened new empty tab`);
   } catch (err) {
-    console.error("Error closing tabs:", err);
+    console.error("❌ Error closing tabs:", err);
+    throw err;
   }
 }
 
@@ -288,6 +303,8 @@ async function syncSnapshot(key) {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     try {
+      console.log("📨 Received message:", msg.type);
+
       switch (msg?.type) {
         case "CAPTURE_NOW": {
           const result = await captureAllTabs();
@@ -298,6 +315,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         case "LIST_SNAPSHOTS": {
           const snapshots = await listSnapshots();
           sendResponse({ ok: true, snapshots });
+          break;
+        }
+
+        case "RESTORE_SNAPSHOT": {
+          // Restore a specific snapshot by key
+          if (!msg.key) {
+            sendResponse({ ok: false, error: "No snapshot key provided" });
+            break;
+          }
+          await restoreSnapshot(msg.key);
+          sendResponse({ ok: true });
           break;
         }
 
@@ -337,7 +365,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           sendResponse({ ok: false, error: "Unknown message type" });
       }
     } catch (err) {
-      console.error("Message handler error:", err);
+      console.error("❌ Message handler error:", err);
       sendResponse({ ok: false, error: err.message });
     }
   })();
