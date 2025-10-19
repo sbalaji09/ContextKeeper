@@ -11,10 +11,11 @@ chrome.runtime.onInstalled.addListener(() => {
 async function captureAllTabs() {
   console.log("📸 Starting capture...");
 
-  // get all windows with their tabs
-  const windows = await chrome.windows.getAll({ populate: true, windowTypes: ["normal"] });
-  console.log(`Found ${windows.length} windows to capture`);
+  // Get ONLY the current window (not all windows)
+  const currentWindow = await chrome.windows.getCurrent({ populate: true });
+  console.log(`Capturing current window with ${currentWindow.tabs.length} tabs`);
 
+  const windows = [currentWindow]; // Only capture current window
   const snapshots = [];
 
   for (const win of windows) {
@@ -84,12 +85,10 @@ async function closeAllTabsAndOpenEmpty(windows) {
 
     // Collect all tab IDs to close from the captured windows
     const tabIdsToClose = [];
-    let focusedWindowId = null;
+    let currentWindowId = null;
 
     for (const win of windows) {
-      if (win.focused) {
-        focusedWindowId = win.id;
-      }
+      currentWindowId = win.id; // This is the current window
       for (const tab of (win.tabs || [])) {
         if (tab.id) {
           tabIdsToClose.push(tab.id);
@@ -99,32 +98,20 @@ async function closeAllTabsAndOpenEmpty(windows) {
 
     console.log(`Planning to close ${tabIdsToClose.length} tabs`);
 
-    // Before closing, create a new empty tab to prevent browser from closing
-    // Create it in the focused window if possible
-    let newTab;
-    if (focusedWindowId) {
-      console.log(`Creating new tab in focused window ${focusedWindowId}`);
-      newTab = await chrome.tabs.create({
-        windowId: focusedWindowId,
-        url: "about:blank",
-        active: true
-      });
-    } else {
-      console.log("Creating new window with empty tab");
-      // Create new window with empty tab
-      const newWindow = await chrome.windows.create({
-        url: "about:blank",
-        focused: true
-      });
-      newTab = newWindow.tabs[0];
-    }
+    // Create a new empty tab in the CURRENT window (not a new window)
+    console.log(`Creating new tab in current window ${currentWindowId}`);
+    const newTab = await chrome.tabs.create({
+      windowId: currentWindowId,
+      url: "about:blank",
+      active: true
+    });
 
     console.log(`Created new tab with ID: ${newTab.id}`);
 
     // Wait a moment to ensure new tab is created
     await new Promise(resolve => setTimeout(resolve, 300));
 
-    // Now close all the old tabs (excluding the new tab we just created)
+    // Now close all the old tabs in the current window (excluding the new tab)
     const tabsToRemove = tabIdsToClose.filter(id => id !== newTab.id);
     console.log(`Closing ${tabsToRemove.length} tabs (excluding new tab ${newTab.id})`);
 
@@ -133,7 +120,7 @@ async function closeAllTabsAndOpenEmpty(windows) {
       console.log("✅ Tabs closed successfully");
     }
 
-    console.log(`✅ Closed ${tabsToRemove.length} tabs and opened new empty tab`);
+    console.log(`✅ Closed ${tabsToRemove.length} tabs and opened new empty tab in current window`);
   } catch (err) {
     console.error("❌ Error closing tabs:", err);
     throw err;
@@ -160,7 +147,9 @@ async function listSnapshots() {
   return snapshots;
 }
 
-async function restoreSnapshot(key) {
+async function restoreSnapshot(key, autoDelete = true) {
+  console.log(`🔄 Restoring snapshot: ${key}`);
+
   // Get the snapshot data
   const data = await chrome.storage.local.get(key);
   const snapshotData = data[key];
@@ -170,6 +159,7 @@ async function restoreSnapshot(key) {
   }
 
   const windows = snapshotData.snapshots;
+  console.log(`Restoring ${windows.length} window(s)`);
 
   // Restore each window
   for (const winInfo of windows) {
@@ -251,6 +241,14 @@ async function restoreSnapshot(key) {
       }
     }
   }
+
+  // Auto-delete the snapshot after restoring (if enabled)
+  if (autoDelete) {
+    console.log(`🗑️ Auto-deleting snapshot: ${key}`);
+    await deleteSnapshot(key);
+  }
+
+  console.log("✅ Restore complete!");
 }
 
 async function deleteSnapshot(key) {
