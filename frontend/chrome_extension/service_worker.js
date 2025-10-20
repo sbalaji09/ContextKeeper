@@ -99,11 +99,12 @@ async function closeAllTabsAndOpenEmpty(windows) {
     console.log(`Planning to close ${tabIdsToClose.length} tabs`);
 
     // Create a new empty tab in the CURRENT window (not a new window)
+    // Use chrome://newtab/ for default browser new tab page
     console.log(`Creating new tab in current window ${currentWindowId}`);
     const newTab = await chrome.tabs.create({
       windowId: currentWindowId,
-      url: "about:blank",
       active: true
+      // Don't specify URL - let browser use its default new tab page
     });
 
     console.log(`Created new tab with ID: ${newTab.id}`);
@@ -159,86 +160,126 @@ async function restoreSnapshot(key, autoDelete = true) {
   }
 
   const windows = snapshotData.snapshots;
-  console.log(`Restoring ${windows.length} window(s)`);
+  console.log(`Restoring ${windows.length} window(s) with ${windows[0]?.tabs?.length || 0} tabs`);
 
-  // Restore each window
-  for (const winInfo of windows) {
-    const createData = {
-      focused: winInfo.focused,
-      url: winInfo.tabs.map(t => t.url),
-      left: winInfo.bounds?.left,
-      top: winInfo.bounds?.top,
-      width: winInfo.bounds?.width,
-      height: winInfo.bounds?.height
-    };
+  // Get the current window to restore tabs into
+  const currentWindow = await chrome.windows.getCurrent();
+  const currentWindowId = currentWindow.id;
+  console.log(`Restoring tabs into current window ${currentWindowId}`);
 
-    const newWindow = await chrome.windows.create(createData);
+  // Close all existing tabs in the current window first
+  const existingTabs = await chrome.tabs.query({ windowId: currentWindowId });
+  const existingTabIds = existingTabs.map(t => t.id);
+  console.log(`Closing ${existingTabIds.length} existing tabs`);
 
-    // Wait a bit for tabs to load
-    await new Promise(resolve => setTimeout(resolve, 500));
+  // Get all tabs to restore from the first window in the snapshot
+  const winInfo = windows[0]; // Only restore the first window's tabs
+  const urlsToRestore = winInfo.tabs.map(t => t.url).filter(url => url && !url.startsWith("chrome://"));
 
-    // Restore scroll and form state for each tab
-    for (let i = 0; i < winInfo.tabs.length; i++) {
-      const tabInfo = winInfo.tabs[i];
-      const newTab = newWindow.tabs[i];
+  if (urlsToRestore.length === 0) {
+    throw new Error("No valid URLs to restore");
+  }
 
-      if (!newTab || !tabInfo.scrollX && !tabInfo.scrollY && !tabInfo.forms) {
-        continue;
-      }
+  console.log(`Creating ${urlsToRestore.length} new tabs`);
 
-      try {
-        // Wait for tab to be ready
-        await chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
+  // Create all the tabs in the current window
+  const newTabs = [];
+  for (let i = 0; i < urlsToRestore.length; i++) {
+    const url = urlsToRestore[i];
+    const tabInfo = winInfo.tabs[i];
+
+    const newTab = await chrome.tabs.create({
+      windowId: currentWindowId,
+      url: url,
+      active: i === 0, // Make first tab active
+      pinned: tabInfo.pinned || false
+    });
+
+    newTabs.push({ tab: newTab, info: tabInfo });
+  }
+
+  // Now close the old tabs
+  if (existingTabIds.length > 0) {
+    await chrome.tabs.remove(existingTabIds).catch(err => {
+      console.warn("Failed to close some tabs:", err);
+    });
+  }
+
+  // Wait for tabs to load before restoring state
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  // Restore scroll and form state for each tab
+  for (let i = 0; i < newTabs.length; i++) {
+    const { tab: newTab, info: tabInfo } = newTabs[i];
+
+    if (!newTab || (!tabInfo.scrollX && !tabInfo.scrollY && !tabInfo.forms)) {
+      continue;
+    }
+
+    try {
+      // Wait for tab to be fully loaded
+      await new Promise((resolve) => {
+        const listener = (tabId, changeInfo) => {
           if (tabId === newTab.id && changeInfo.status === 'complete') {
             chrome.tabs.onUpdated.removeListener(listener);
+            resolve();
           }
-        });
+        };
+        chrome.tabs.onUpdated.addListener(listener);
 
-        // Inject and execute restore script with the captured state
-        await chrome.scripting.executeScript({
-          target: { tabId: newTab.id },
-          func: (state) => {
-            if (!state) return;
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          chrome.tabs.onUpdated.removeListener(listener);
+          resolve();
+        }, 10000);
+      });
 
-            // Restore scroll position
-            if (typeof state.scrollX === 'number' && typeof state.scrollY === 'number') {
-              window.scrollTo(state.scrollX, state.scrollY);
-            }
+      // Inject and execute restore script with the captured state
+      await chrome.scripting.executeScript({
+        target: { tabId: newTab.id },
+        func: (state) => {
+          if (!state) return;
 
-            // Restore form controls
-            if (Array.isArray(state.forms)) {
-              for (const control of state.forms) {
-                if (!control.selector) continue;
+          // Restore scroll position
+          if (typeof state.scrollX === 'number' && typeof state.scrollY === 'number') {
+            window.scrollTo(state.scrollX, state.scrollY);
+          }
 
-                try {
-                  const el = document.querySelector(control.selector);
-                  if (!el) continue;
+          // Restore form controls
+          if (Array.isArray(state.forms)) {
+            for (const control of state.forms) {
+              if (!control.selector) continue;
 
-                  // Restore based on element type
-                  if (control.tag === 'input' && (control.type === 'checkbox' || control.type === 'radio')) {
-                    if (typeof control.checked === 'boolean') {
-                      el.checked = control.checked;
-                    }
-                  } else if (control.tag === 'select') {
-                    if (typeof control.selectedIndex === 'number') {
-                      el.selectedIndex = control.selectedIndex;
-                    }
-                  } else if (control.contentEditable && control.value) {
-                    el.innerText = control.value;
-                  } else if (control.value !== null && control.value !== undefined) {
-                    el.value = control.value;
+              try {
+                const el = document.querySelector(control.selector);
+                if (!el) continue;
+
+                // Restore based on element type
+                if (control.tag === 'input' && (control.type === 'checkbox' || control.type === 'radio')) {
+                  if (typeof control.checked === 'boolean') {
+                    el.checked = control.checked;
                   }
-                } catch (err) {
-                  console.warn('Failed to restore control:', control.selector, err);
+                } else if (control.tag === 'select') {
+                  if (typeof control.selectedIndex === 'number') {
+                    el.selectedIndex = control.selectedIndex;
+                  }
+                } else if (control.contentEditable && control.value) {
+                  el.innerText = control.value;
+                } else if (control.value !== null && control.value !== undefined) {
+                  el.value = control.value;
                 }
+              } catch (err) {
+                console.warn('Failed to restore control:', control.selector, err);
               }
             }
-          },
-          args: [tabInfo]
-        });
-      } catch (err) {
-        console.warn(`Failed to restore state for tab ${newTab.id}:`, err);
-      }
+          }
+        },
+        args: [tabInfo]
+      });
+
+      console.log(`✅ Restored state for tab ${i + 1}/${newTabs.length}`);
+    } catch (err) {
+      console.warn(`Failed to restore state for tab ${newTab.id}:`, err);
     }
   }
 
