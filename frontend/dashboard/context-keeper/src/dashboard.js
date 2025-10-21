@@ -81,49 +81,69 @@ function Dashboard() {
     }
   }
 
-  if (loading) return <div className="container"><p>Loading workspaces...</p></div>;
-  if (error) return <div className="container"><p style={{ color: "red" }}>Error: {error}</p></div>;
+  if (loading) return (
+    <div className="container">
+      <div className="loading">Loading workspaces...</div>
+    </div>
+  );
+
+  if (error) return (
+    <div className="container">
+      <div className="error">Error: {error}</div>
+    </div>
+  );
 
   return (
     <div className="container">
       <div className="header">
-        <h2 className="heading">📸 Your Workspaces</h2>
+        <div className="brand-section">
+          <div className="brand-icon">📦</div>
+          <h2 className="heading">ContextKeeper</h2>
+        </div>
         <div className="user-info">
-          <span>Welcome, {user?.email}</span>
+          <span className="user-email">{user?.email}</span>
           <button onClick={handleLogout} className="btn-logout">Logout</button>
         </div>
       </div>
 
-      {workspaces.length === 0 ? (
-        <div className="empty-state">
-          <p>No workspaces found.</p>
-          <p className="subtitle">Install the browser extension and capture your first workspace!</p>
+      <div className="content-area">
+        <div className="section-header">
+          <div className="section-title">Your Workspaces</div>
+          <div className="section-subtitle">All your saved browser sessions</div>
         </div>
-      ) : (
-        <div className="grid">
-          {workspaces.map((workspace) => (
-            <div key={workspace.id} className="card">
-              <h3>{workspace.name || "Untitled Workspace"}</h3>
-              <p className="description">{workspace.description || "No description"}</p>
-              <div className="card-meta">
-                <small>Created: {new Date(workspace.created_at).toLocaleDateString()}</small>
-                {workspace.last_accessed_at && (
-                  <small>Last accessed: {new Date(workspace.last_accessed_at).toLocaleDateString()}</small>
-                )}
+
+        {workspaces.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">📭</div>
+            <div className="empty-text">No workspaces found</div>
+            <div className="subtitle">Install the browser extension and capture your first workspace!</div>
+          </div>
+        ) : (
+          <div className="grid">
+            {workspaces.map((workspace) => (
+              <div key={workspace.id} className="card">
+                <h3>{workspace.name || "Untitled Workspace"}</h3>
+                <p className="description">{workspace.description || "No description"}</p>
+                <div className="card-meta">
+                  <small>Created: {new Date(workspace.created_at).toLocaleDateString()}</small>
+                  {workspace.last_accessed_at && (
+                    <small>Last accessed: {new Date(workspace.last_accessed_at).toLocaleDateString()}</small>
+                  )}
+                </div>
+                <div className="card-actions">
+                  <button className="btn-primary">Open</button>
+                  <button
+                    className="btn-danger"
+                    onClick={() => handleDeleteWorkspace(workspace.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-              <div className="card-actions">
-                <button className="btn-primary">Open</button>
-                <button
-                  className="btn-danger"
-                  onClick={() => handleDeleteWorkspace(workspace.id)}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

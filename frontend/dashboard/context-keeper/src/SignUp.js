@@ -92,6 +92,10 @@ function SignUp({ onSuccess }) {
   return (
     <div className="login-container">
       <form className="login-card" onSubmit={handleSubmit} noValidate>
+        <div className="brand">
+          <div className="brand-icon">📦</div>
+          <div className="brand-name">ContextKeeper</div>
+        </div>
         <h1 className="login-title">Create your account</h1>
         <p className="login-subtitle">Join us in a few steps</p>
 
