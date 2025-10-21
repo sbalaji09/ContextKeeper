@@ -1,6 +1,3 @@
-// service_worker.js
-
-// Log when service worker starts
 console.log("🚀 Service worker loaded!");
 
 // Test that chrome APIs are available
@@ -8,28 +5,27 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log("✅ Extension installed/updated");
 });
 
+// captures all the current browser window's tabs and their state
 async function captureAllTabs() {
   console.log("📸 Starting capture...");
 
-  // Get ONLY the current window (not all windows)
+  // captures only the current window and not any other windows
   const currentWindow = await chrome.windows.getCurrent({ populate: true });
   console.log(`Capturing current window with ${currentWindow.tabs.length} tabs`);
 
-  const windows = [currentWindow]; // Only capture current window
+  const windows = [currentWindow];
   const snapshots = [];
 
   for (const win of windows) {
-    // captures all the separate windows
     const winInfo = {
       windowId: win.id,
       focused: win.focused,
       bounds: { left: win.left, top: win.top, width: win.width, height: win.height },
       tabs: []
     };
-
-    // iterates through every tab in the window and adds each one to the winInfo array
+    // iterates through every tab in the captured window and runs the capture.js script
+    // to collect state on teach individual tab
     for (const tab of (win.tabs || [])) {
-      // Skip restricted URLs that can't be scripted
       if (!tab.id || !tab.url ||
           tab.url.startsWith("chrome://") ||
           tab.url.startsWith("chrome-extension://") ||
@@ -50,6 +46,7 @@ async function captureAllTabs() {
         // Continue without payload for this tab
       }
 
+      // adds each collected tab to the winInfo list
       winInfo.tabs.push({
         tabId: tab.id,
         title: tab.title,
@@ -73,17 +70,19 @@ async function captureAllTabs() {
 
   console.log("Captured snapshot:", key, snapshots);
 
-  // Close all tabs after capturing
+  // close all tabs after capturing
   await closeAllTabsAndOpenEmpty(windows);
 
   return { key, snapshots };
 }
 
+// this closes all tabs in the current window and opens a new empty tab
+// called when the user captures their current window
 async function closeAllTabsAndOpenEmpty(windows) {
   try {
     console.log("🗑️ Closing tabs and opening new empty tab...");
 
-    // Collect all tab IDs to close from the captured windows
+    // collect all tab IDs to close from the captured windows
     const tabIdsToClose = [];
     let currentWindowId = null;
 
@@ -99,20 +98,16 @@ async function closeAllTabsAndOpenEmpty(windows) {
     console.log(`Planning to close ${tabIdsToClose.length} tabs`);
 
     // Create a new empty tab in the CURRENT window (not a new window)
-    // Use chrome://newtab/ for default browser new tab page
     console.log(`Creating new tab in current window ${currentWindowId}`);
     const newTab = await chrome.tabs.create({
       windowId: currentWindowId,
       active: true
-      // Don't specify URL - let browser use its default new tab page
     });
 
     console.log(`Created new tab with ID: ${newTab.id}`);
 
-    // Wait a moment to ensure new tab is created
     await new Promise(resolve => setTimeout(resolve, 300));
 
-    // Now close all the old tabs in the current window (excluding the new tab)
     const tabsToRemove = tabIdsToClose.filter(id => id !== newTab.id);
     console.log(`Closing ${tabsToRemove.length} tabs (excluding new tab ${newTab.id})`);
 
@@ -128,6 +123,7 @@ async function closeAllTabsAndOpenEmpty(windows) {
   }
 }
 
+// lists all saved workspace snapshots by reading items from chrome.storage.local
 async function listSnapshots() {
   const allData = await chrome.storage.local.get(null);
   const snapshots = [];
@@ -143,11 +139,12 @@ async function listSnapshots() {
     }
   }
 
-  // Sort by creation time (newest first)
+  // sorts the snapshots by creation time with the newest ones first
   snapshots.sort((a, b) => b.createdAt - a.createdAt);
   return snapshots;
 }
 
+// restores a saved snapshot into the current window by loading the snapshot data from storage
 async function restoreSnapshot(key, autoDelete = true) {
   console.log(`🔄 Restoring snapshot: ${key}`);
 
@@ -292,6 +289,7 @@ async function restoreSnapshot(key, autoDelete = true) {
   console.log("✅ Restore complete!");
 }
 
+// deletes a snapshot from storage on the click of delete button
 async function deleteSnapshot(key) {
   await chrome.storage.local.remove(key);
 
@@ -307,6 +305,7 @@ async function deleteSnapshot(key) {
   }
 }
 
+// uploads a snapshot to the given backend API url to be displayed on the frontend
 async function syncSnapshot(key) {
   const { API_URL } = await chrome.storage.local.get("API_URL");
   if (!API_URL) {
@@ -346,12 +345,13 @@ async function syncSnapshot(key) {
   return await response.json();
 }
 
-// Message handler for all popup actions
+// handles messages from the popup or other extension parts
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     try {
       console.log("📨 Received message:", msg.type);
 
+      // based on the type of message, the listener will call a specific function
       switch (msg?.type) {
         case "CAPTURE_NOW": {
           const result = await captureAllTabs();
