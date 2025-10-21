@@ -1,6 +1,3 @@
-// IMPORTANT: This script must evaluate to a value (not wrapped in an IIFE that returns)
-// so that chrome.scripting.executeScript can capture the result
-
 // added CSS selector that captures all the CSS elements from a specific page
 function getSelector(el) {
   if (!el) return null;
