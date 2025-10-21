@@ -1,15 +1,13 @@
-// This script restores the page state (scroll position and form values)
-// It receives the captured state as a parameter
-
 (function(state) {
   if (!state) return;
 
-  // Restore scroll position
+  // restores scroll position based on saved state
   if (typeof state.scrollX === 'number' && typeof state.scrollY === 'number') {
     window.scrollTo(state.scrollX, state.scrollY);
   }
 
-  // Restore form controls
+  // restores form controls if controls for the given form
+  // were saved to begin with
   if (Array.isArray(state.forms)) {
     for (const control of state.forms) {
       if (!control.selector) continue;
