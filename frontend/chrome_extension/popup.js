@@ -8,28 +8,39 @@ async function refreshList() {
   const res = await send("LIST_SNAPSHOTS");
   const list = $("#list");
   list.innerHTML = "";
-  if (!res.ok || !Array.isArray(res.snapshots)) {
-    list.textContent = res.error || "No snapshots";
+
+  if (!res.ok || !Array.isArray(res.snapshots) || res.snapshots.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <div class="empty-text">No saved workspaces yet<br/>Click "Capture" to save your tabs</div>
+      </div>
+    `;
     return;
   }
+
   res.snapshots.forEach(({ key, createdAt, size }) => {
     const div = document.createElement("div");
-    div.className = "item";
-    const when = createdAt ? new Date(createdAt).toLocaleString() : key;
+    div.className = "snapshot-item";
+    const when = createdAt ? new Date(createdAt).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }) : 'Unknown';
+
     div.innerHTML = `
-      <div>
-        <div><strong>${when}</strong></div>
-        <small>${key} • ${Math.round(size/1024)} KB</small>
+      <div class="snapshot-info">
+        <div class="snapshot-time">${when}</div>
+        <div class="snapshot-meta">${Math.round(size/1024)} KB</div>
       </div>
-      <div>
-        <button data-restore="${key}">Restore</button>
-        <button data-sync="${key}">Sync</button>
-        <button data-del="${key}">✕</button>
-      </div>`;
+      <div class="snapshot-actions">
+        <button class="icon-btn restore" data-restore="${key}" title="Restore">↩️</button>
+        <button class="icon-btn delete" data-del="${key}" title="Delete">🗑️</button>
+      </div>
+    `;
     list.appendChild(div);
   });
-
-  // Use event delegation - no need to remove/re-add listener
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -79,44 +90,45 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  $("#saveApi").addEventListener("click", async () => {
-    const API_URL = $("#apiUrl").value.trim();
-    const API_TOKEN = $("#apiToken").value.trim();
-    await send("SET_API", { API_URL, API_TOKEN });
-    alert("API settings saved!");
-  });
-
   // Event delegation for dynamically created snapshot list buttons
   $("#list").addEventListener("click", async (e) => {
-    const r = e.target.getAttribute("data-restore");
-    const d = e.target.getAttribute("data-del");
-    const s = e.target.getAttribute("data-sync");
+    const target = e.target.closest('.icon-btn');
+    if (!target) return;
+
+    const r = target.getAttribute("data-restore");
+    const d = target.getAttribute("data-del");
 
     if (r) {
-      // Restore the specific snapshot by key
-      const result = await send("RESTORE_SNAPSHOT", { key: r });
-      if (result.ok) {
-        window.close(); // Close popup after restore
-      } else {
-        alert(`Restore failed: ${result.error}`);
-      }
-    } else if (s) {
-      const result = await send("SYNC_SNAPSHOT", { key: s });
-      if (result.ok) {
-        alert("Snapshot synced successfully!");
-      } else {
-        alert(`Sync failed: ${result.error}`);
+      try {
+        target.disabled = true;
+        target.style.opacity = '0.5';
+
+        const result = await send("RESTORE_SNAPSHOT", { key: r });
+        if (result.ok) {
+          window.close(); // Close popup after restore
+        } else {
+          alert(`Restore failed: ${result.error}`);
+          target.disabled = false;
+          target.style.opacity = '1';
+        }
+      } catch (error) {
+        console.error("Restore error:", error);
+        alert(`Error: ${error.message}`);
+        target.disabled = false;
+        target.style.opacity = '1';
       }
     } else if (d) {
-      await send("DELETE_SNAPSHOT", { key: d });
-      await refreshList();
+      try {
+        target.disabled = true;
+        await send("DELETE_SNAPSHOT", { key: d });
+        await refreshList();
+      } catch (error) {
+        console.error("Delete error:", error);
+        alert(`Error: ${error.message}`);
+        target.disabled = false;
+      }
     }
   });
-
-  // Prefill settings
-  const { API_URL, API_TOKEN } = await chrome.storage.local.get(["API_URL", "API_TOKEN"]);
-  if (API_URL) $("#apiUrl").value = API_URL;
-  if (API_TOKEN) $("#apiToken").value = API_TOKEN;
 
   await refreshList();
 });
