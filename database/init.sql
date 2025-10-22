@@ -1,24 +1,13 @@
--- Core user management
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    auth_user_id TEXT UNIQUE, -- Supabase Auth UUID (optional, for syncing with Supabase Auth)
-    username TEXT UNIQUE NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Workspaces (saved browser states)
+-- Note: user_id references Supabase Auth user ID (UUID stored as TEXT)
 CREATE TABLE workspaces (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
+    user_id TEXT NOT NULL, -- Supabase Auth UUID
     name TEXT NOT NULL,
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_accessed_at TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    last_accessed_at TIMESTAMP
 );
 
 -- Browser tabs within a workspace
@@ -35,11 +24,10 @@ CREATE TABLE tabs (
 -- Groups to organize multiple workspaces
 CREATE TABLE groups (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
+    user_id TEXT NOT NULL, -- Supabase Auth UUID
     name TEXT NOT NULL,
     color TEXT DEFAULT '#3b82f6',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Many-to-many relationship between groups and workspaces

@@ -31,7 +31,7 @@ function SignUp({ onSuccess }) {
     try {
       setLoading(true);
 
-      // Sign up with Supabase Auth (with email confirmation disabled)
+      // Sign up with Supabase Auth (email verification disabled)
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -39,12 +39,7 @@ function SignUp({ onSuccess }) {
           data: {
             username: username, // Store username in user metadata
           },
-          emailRedirectTo: undefined, // Disable email confirmation redirect
         },
-      },
-      {
-        // This disables email confirmation requirement
-        emailConfirm: false
       });
 
       if (signUpError) {
@@ -55,25 +50,7 @@ function SignUp({ onSuccess }) {
         throw new Error("Signup failed - no user returned");
       }
 
-      // After signup, insert user record into the users table
-      // Note: We let the database auto-generate the INTEGER id, and store the Supabase auth UUID separately
-      const { error: insertError } = await supabase
-        .from('users')
-        .insert([
-          {
-            auth_user_id: data.user.id, // Store Supabase Auth UUID
-            username: username,
-            email: email,
-            password_hash: 'handled_by_supabase_auth', // Placeholder since Supabase handles passwords
-          },
-        ]);
-
-      if (insertError) {
-        console.error("Error inserting user into users table:", insertError);
-        // Don't throw - auth user was created successfully
-      }
-
-      // User is automatically logged in (email verification disabled) - redirect to dashboard
+      // User is automatically logged in - redirect to dashboard
       if (typeof onSuccess === "function") {
         onSuccess(data);
       } else {
