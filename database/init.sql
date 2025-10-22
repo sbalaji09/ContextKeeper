@@ -1,6 +1,7 @@
 -- Core user management
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    auth_user_id TEXT UNIQUE, -- Supabase Auth UUID (optional, for syncing with Supabase Auth)
     username TEXT UNIQUE NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,

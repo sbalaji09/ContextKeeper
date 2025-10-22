@@ -19,7 +19,22 @@ function Dashboard() {
       }
 
       setUser(session.user);
-      fetchWorkspaces(session.user.id);
+
+      // Get the integer user_id from the users table using the auth_user_id
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', session.user.id)
+        .single();
+
+      if (userError || !userData) {
+        console.error("Error fetching user:", userError);
+        setError("User not found in database");
+        setLoading(false);
+        return;
+      }
+
+      fetchWorkspaces(userData.id);
     }
 
     checkUser();

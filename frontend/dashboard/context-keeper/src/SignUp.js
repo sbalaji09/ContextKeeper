@@ -31,7 +31,7 @@ function SignUp({ onSuccess }) {
     try {
       setLoading(true);
 
-      // Sign up with Supabase Auth (with auto-confirm if email confirmation is disabled)
+      // Sign up with Supabase Auth (with email confirmation disabled)
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -41,6 +41,10 @@ function SignUp({ onSuccess }) {
           },
           emailRedirectTo: undefined, // Disable email confirmation redirect
         },
+      },
+      {
+        // This disables email confirmation requirement
+        emailConfirm: false
       });
 
       if (signUpError) {
@@ -52,11 +56,12 @@ function SignUp({ onSuccess }) {
       }
 
       // After signup, insert user record into the users table
+      // Note: We let the database auto-generate the INTEGER id, and store the Supabase auth UUID separately
       const { error: insertError } = await supabase
         .from('users')
         .insert([
           {
-            id: data.user.id, // Use Supabase auth user ID
+            auth_user_id: data.user.id, // Store Supabase Auth UUID
             username: username,
             email: email,
             password_hash: 'handled_by_supabase_auth', // Placeholder since Supabase handles passwords
@@ -68,18 +73,11 @@ function SignUp({ onSuccess }) {
         // Don't throw - auth user was created successfully
       }
 
-      // Check if user has a session (means auto-confirm is enabled)
-      if (data.session) {
-        // User is automatically logged in - redirect to dashboard
-        if (typeof onSuccess === "function") {
-          onSuccess(data);
-        } else {
-          window.location.href = "/dashboard";
-        }
+      // User is automatically logged in (email verification disabled) - redirect to dashboard
+      if (typeof onSuccess === "function") {
+        onSuccess(data);
       } else {
-        // Email confirmation is required - redirect to login with message
-        alert("Account created! Please check your email to verify your account before logging in.");
-        window.location.href = "/login";
+        window.location.href = "/dashboard";
       }
     } catch (err) {
       console.error("Signup error:", err);
