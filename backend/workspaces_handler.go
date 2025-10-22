@@ -1,4 +1,4 @@
-package handlers
+package main
 
 import (
 	"encoding/json"
@@ -6,26 +6,23 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/contextkeeper/backend/database"
-	"github.com/contextkeeper/backend/middleware"
-	"github.com/contextkeeper/backend/models"
 	"github.com/gorilla/mux"
 )
 
 // WorkspaceHandler handles workspace-related requests
 type WorkspaceHandler struct {
-	DB *database.Client
+	DB *SupabaseClient
 }
 
 // CreateWorkspace creates a new workspace with tabs
 func (h *WorkspaceHandler) CreateWorkspace(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r)
+	userID := GetUserID(r)
 	if userID == "" {
 		respondError(w, http.StatusUnauthorized, "Unauthorized", "User ID not found")
 		return
 	}
 
-	var req models.CreateWorkspaceRequest
+	var req CreateWorkspaceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "Bad Request", "Invalid request body")
 		return
@@ -57,7 +54,7 @@ func (h *WorkspaceHandler) CreateWorkspace(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var workspaces []models.Workspace
+	var workspaces []Workspace
 	if err := json.Unmarshal(workspaceJSON, &workspaces); err != nil || len(workspaces) == 0 {
 		respondError(w, http.StatusInternalServerError, "Server Error", "Failed to parse workspace response")
 		return
@@ -65,7 +62,7 @@ func (h *WorkspaceHandler) CreateWorkspace(w http.ResponseWriter, r *http.Reques
 	workspace := workspaces[0]
 
 	// Create tabs
-	tabs := make([]models.Tab, 0, len(req.Tabs))
+	tabs := make([]Tab, 0, len(req.Tabs))
 	for _, tabReq := range req.Tabs {
 		tabData := map[string]interface{}{
 			"workspace_id": workspace.ID,
@@ -83,7 +80,7 @@ func (h *WorkspaceHandler) CreateWorkspace(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		var insertedTabs []models.Tab
+		var insertedTabs []Tab
 		if err := json.Unmarshal(tabJSON, &insertedTabs); err == nil && len(insertedTabs) > 0 {
 			tabs = append(tabs, insertedTabs[0])
 		}
@@ -96,7 +93,7 @@ func (h *WorkspaceHandler) CreateWorkspace(w http.ResponseWriter, r *http.Reques
 
 // GetWorkspaces retrieves all workspaces for the authenticated user
 func (h *WorkspaceHandler) GetWorkspaces(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r)
+	userID := GetUserID(r)
 	if userID == "" {
 		respondError(w, http.StatusUnauthorized, "Unauthorized", "User ID not found")
 		return
@@ -109,7 +106,7 @@ func (h *WorkspaceHandler) GetWorkspaces(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var workspaces []models.Workspace
+	var workspaces []Workspace
 	if err := json.Unmarshal(workspacesJSON, &workspaces); err != nil {
 		respondError(w, http.StatusInternalServerError, "Server Error", "Failed to parse workspaces")
 		return
@@ -119,7 +116,7 @@ func (h *WorkspaceHandler) GetWorkspaces(w http.ResponseWriter, r *http.Request)
 	for i := range workspaces {
 		tabsJSON, err := h.DB.Select("tabs", "*", fmt.Sprintf("workspace_id=eq.%d&order=position.asc", workspaces[i].ID))
 		if err == nil {
-			var tabs []models.Tab
+			var tabs []Tab
 			if err := json.Unmarshal(tabsJSON, &tabs); err == nil {
 				workspaces[i].Tabs = tabs
 			}
@@ -131,7 +128,7 @@ func (h *WorkspaceHandler) GetWorkspaces(w http.ResponseWriter, r *http.Request)
 
 // GetWorkspace retrieves a specific workspace by ID
 func (h *WorkspaceHandler) GetWorkspace(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r)
+	userID := GetUserID(r)
 	if userID == "" {
 		respondError(w, http.StatusUnauthorized, "Unauthorized", "User ID not found")
 		return
@@ -146,7 +143,7 @@ func (h *WorkspaceHandler) GetWorkspace(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var workspaces []models.Workspace
+	var workspaces []Workspace
 	if err := json.Unmarshal(workspaceJSON, &workspaces); err != nil || len(workspaces) == 0 {
 		respondError(w, http.StatusNotFound, "Not Found", "Workspace not found")
 		return
@@ -156,7 +153,7 @@ func (h *WorkspaceHandler) GetWorkspace(w http.ResponseWriter, r *http.Request) 
 	// Get tabs
 	tabsJSON, err := h.DB.Select("tabs", "*", fmt.Sprintf("workspace_id=eq.%s&order=position.asc", id))
 	if err == nil {
-		var tabs []models.Tab
+		var tabs []Tab
 		if err := json.Unmarshal(tabsJSON, &tabs); err == nil {
 			workspace.Tabs = tabs
 		}
@@ -167,7 +164,7 @@ func (h *WorkspaceHandler) GetWorkspace(w http.ResponseWriter, r *http.Request) 
 
 // UpdateWorkspace updates a workspace
 func (h *WorkspaceHandler) UpdateWorkspace(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r)
+	userID := GetUserID(r)
 	if userID == "" {
 		respondError(w, http.StatusUnauthorized, "Unauthorized", "User ID not found")
 		return
@@ -176,7 +173,7 @@ func (h *WorkspaceHandler) UpdateWorkspace(w http.ResponseWriter, r *http.Reques
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	var req models.UpdateWorkspaceRequest
+	var req UpdateWorkspaceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "Bad Request", "Invalid request body")
 		return
@@ -201,7 +198,7 @@ func (h *WorkspaceHandler) UpdateWorkspace(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var workspaces []models.Workspace
+	var workspaces []Workspace
 	if err := json.Unmarshal(workspaceJSON, &workspaces); err != nil || len(workspaces) == 0 {
 		respondError(w, http.StatusNotFound, "Not Found", "Workspace not found")
 		return
@@ -212,7 +209,7 @@ func (h *WorkspaceHandler) UpdateWorkspace(w http.ResponseWriter, r *http.Reques
 
 // DeleteWorkspace deletes a workspace and its tabs
 func (h *WorkspaceHandler) DeleteWorkspace(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r)
+	userID := GetUserID(r)
 	if userID == "" {
 		respondError(w, http.StatusUnauthorized, "Unauthorized", "User ID not found")
 		return
@@ -234,7 +231,7 @@ func (h *WorkspaceHandler) DeleteWorkspace(w http.ResponseWriter, r *http.Reques
 func respondError(w http.ResponseWriter, status int, error, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(models.ErrorResponse{
+	json.NewEncoder(w).Encode(ErrorResponse{
 		Error:   error,
 		Message: message,
 	})
@@ -243,7 +240,7 @@ func respondError(w http.ResponseWriter, status int, error, message string) {
 func respondSuccess(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(models.SuccessResponse{
+	json.NewEncoder(w).Encode(SuccessResponse{
 		Success: true,
 		Data:    data,
 	})
@@ -252,7 +249,7 @@ func respondSuccess(w http.ResponseWriter, status int, data interface{}) {
 func respondSuccessMessage(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(models.SuccessResponse{
+	json.NewEncoder(w).Encode(SuccessResponse{
 		Success: true,
 		Message: message,
 	})

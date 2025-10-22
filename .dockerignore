@@ -1,0 +1,51 @@
+# Git
+.git
+.gitignore
+
+# Environment files
+**/.env
+**/.env.local
+.env.example
+
+# Node modules
+**/node_modules
+
+# Build artifacts
+**/dist
+**/build
+**/tmp
+
+# Backend binaries
+backend/contextkeeper-backend
+**/*.exe
+**/*.dll
+**/*.so
+**/*.dylib
+
+# IDE
+.vscode
+.idea
+**/*.swp
+**/*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+**/*.log
+
+# Documentation
+**/*.md
+!README.md
+
+# Database
+database/
+
+# Test files
+**/*_test.go
+**/test/
+**/tests/
+
+# Chrome extension (not needed in container)
+frontend/chrome_extension/

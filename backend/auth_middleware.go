@@ -1,12 +1,10 @@
-package middleware
+package main
 
 import (
 	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
-
-	"github.com/contextkeeper/backend/database"
 )
 
 type contextKey string
@@ -14,7 +12,7 @@ type contextKey string
 const UserIDKey contextKey = "userID"
 
 // AuthMiddleware verifies Supabase JWT tokens
-func AuthMiddleware(db *database.Client) func(http.Handler) http.Handler {
+func AuthMiddleware(db *SupabaseClient) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")

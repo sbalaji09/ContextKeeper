@@ -8,33 +8,29 @@ import (
 	"strings"
 	"time"
 
-	"github.com/contextkeeper/backend/config"
-	"github.com/contextkeeper/backend/database"
-	"github.com/contextkeeper/backend/handlers"
-	"github.com/contextkeeper/backend/middleware"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 )
 
 func main() {
 	// Load configuration
-	cfg, err := config.Load()
+	cfg, err := LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
 	// Initialize Supabase client
-	db := database.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceKey)
+	db := NewSupabaseClient(cfg.SupabaseURL, cfg.SupabaseServiceKey)
 
 	// Initialize handlers
-	workspaceHandler := &handlers.WorkspaceHandler{DB: db}
-	groupHandler := &handlers.GroupHandler{DB: db}
+	workspaceHandler := &WorkspaceHandler{DB: db}
+	groupHandler := &GroupHandler{DB: db}
 
 	// Create router
 	r := mux.NewRouter()
 
 	// Middleware
-	r.Use(middleware.LoggingMiddleware)
+	r.Use(LoggingMiddleware)
 
 	// Health check endpoint
 	r.HandleFunc("/health", healthCheckHandler).Methods("GET")
@@ -44,7 +40,7 @@ func main() {
 
 	// Workspace routes (protected)
 	workspaces := api.PathPrefix("/workspaces").Subrouter()
-	workspaces.Use(middleware.AuthMiddleware(db))
+	workspaces.Use(AuthMiddleware(db))
 	workspaces.HandleFunc("", workspaceHandler.CreateWorkspace).Methods("POST")
 	workspaces.HandleFunc("", workspaceHandler.GetWorkspaces).Methods("GET")
 	workspaces.HandleFunc("/{id}", workspaceHandler.GetWorkspace).Methods("GET")
@@ -53,7 +49,7 @@ func main() {
 
 	// Group routes (protected)
 	groups := api.PathPrefix("/groups").Subrouter()
-	groups.Use(middleware.AuthMiddleware(db))
+	groups.Use(AuthMiddleware(db))
 	groups.HandleFunc("", groupHandler.CreateGroup).Methods("POST")
 	groups.HandleFunc("", groupHandler.GetGroups).Methods("GET")
 	groups.HandleFunc("/{id}", groupHandler.DeleteGroup).Methods("DELETE")
@@ -63,11 +59,11 @@ func main() {
 
 	// CORS configuration
 	c := cors.New(cors.Options{
-		AllowedOrigins: getAllowedOrigins(cfg.AllowedOrigins),
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"Authorization", "Content-Type"},
+		AllowedOrigins:   getAllowedOrigins(cfg.AllowedOrigins),
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type"},
 		AllowCredentials: true,
-		MaxAge: 300,
+		MaxAge:           300,
 	})
 
 	handler := c.Handler(r)
@@ -106,7 +102,7 @@ func getAllowedOrigins(configured []string) []string {
 	return append(configured, "chrome-extension://*")
 }
 
-func printBanner(cfg *config.Config) {
+func printBanner(cfg *Config) {
 	banner := strings.Repeat("=", 60)
 	fmt.Println(banner)
 	fmt.Println("🚀 ContextKeeper Backend Server (Go)")

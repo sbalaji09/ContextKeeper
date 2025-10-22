@@ -1,4 +1,4 @@
-package database
+package main
 
 import (
 	"bytes"
@@ -8,16 +8,16 @@ import (
 	"net/http"
 )
 
-// Client represents a Supabase database client
-type Client struct {
+// SupabaseClient represents a Supabase database client
+type SupabaseClient struct {
 	URL        string
 	ServiceKey string
 	HTTPClient *http.Client
 }
 
-// NewClient creates a new Supabase client
-func NewClient(url, serviceKey string) *Client {
-	return &Client{
+// NewSupabaseClient creates a new Supabase client
+func NewSupabaseClient(url, serviceKey string) *SupabaseClient {
+	return &SupabaseClient{
 		URL:        url,
 		ServiceKey: serviceKey,
 		HTTPClient: &http.Client{},
@@ -25,7 +25,7 @@ func NewClient(url, serviceKey string) *Client {
 }
 
 // Query executes a SQL query (for advanced operations)
-func (c *Client) Query(table, query string, params map[string]interface{}) ([]byte, error) {
+func (c *SupabaseClient) Query(table, query string, params map[string]interface{}) ([]byte, error) {
 	url := fmt.Sprintf("%s/rest/v1/%s?%s", c.URL, table, query)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -54,7 +54,7 @@ func (c *Client) Query(table, query string, params map[string]interface{}) ([]by
 }
 
 // Insert inserts data into a table
-func (c *Client) Insert(table string, data interface{}) ([]byte, error) {
+func (c *SupabaseClient) Insert(table string, data interface{}) ([]byte, error) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func (c *Client) Insert(table string, data interface{}) ([]byte, error) {
 }
 
 // Select retrieves data from a table with filters
-func (c *Client) Select(table, columns, filters string) ([]byte, error) {
+func (c *SupabaseClient) Select(table, columns, filters string) ([]byte, error) {
 	url := fmt.Sprintf("%s/rest/v1/%s?select=%s", c.URL, table, columns)
 	if filters != "" {
 		url += "&" + filters
@@ -120,7 +120,7 @@ func (c *Client) Select(table, columns, filters string) ([]byte, error) {
 }
 
 // Update updates data in a table
-func (c *Client) Update(table, filters string, data interface{}) ([]byte, error) {
+func (c *SupabaseClient) Update(table, filters string, data interface{}) ([]byte, error) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
@@ -154,7 +154,7 @@ func (c *Client) Update(table, filters string, data interface{}) ([]byte, error)
 }
 
 // Delete deletes data from a table
-func (c *Client) Delete(table, filters string) error {
+func (c *SupabaseClient) Delete(table, filters string) error {
 	url := fmt.Sprintf("%s/rest/v1/%s?%s", c.URL, table, filters)
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
@@ -178,7 +178,7 @@ func (c *Client) Delete(table, filters string) error {
 }
 
 // VerifyJWT verifies a Supabase JWT token and returns user ID
-func (c *Client) VerifyJWT(token string) (string, error) {
+func (c *SupabaseClient) VerifyJWT(token string) (string, error) {
 	url := fmt.Sprintf("%s/auth/v1/user", c.URL)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -210,7 +210,7 @@ func (c *Client) VerifyJWT(token string) (string, error) {
 }
 
 // setHeaders sets common headers for Supabase requests
-func (c *Client) setHeaders(req *http.Request) {
+func (c *SupabaseClient) setHeaders(req *http.Request) {
 	req.Header.Set("apikey", c.ServiceKey)
 	req.Header.Set("Authorization", "Bearer "+c.ServiceKey)
 	req.Header.Set("Content-Type", "application/json")

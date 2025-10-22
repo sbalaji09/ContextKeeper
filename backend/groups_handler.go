@@ -1,4 +1,4 @@
-package handlers
+package main
 
 import (
 	"encoding/json"
@@ -6,26 +6,23 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/contextkeeper/backend/database"
-	"github.com/contextkeeper/backend/middleware"
-	"github.com/contextkeeper/backend/models"
 	"github.com/gorilla/mux"
 )
 
 // GroupHandler handles group-related requests
 type GroupHandler struct {
-	DB *database.Client
+	DB *SupabaseClient
 }
 
 // CreateGroup creates a new group
 func (h *GroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r)
+	userID := GetUserID(r)
 	if userID == "" {
 		respondError(w, http.StatusUnauthorized, "Unauthorized", "User ID not found")
 		return
 	}
 
-	var req models.CreateGroupRequest
+	var req CreateGroupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "Bad Request", "Invalid request body")
 		return
@@ -54,7 +51,7 @@ func (h *GroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var groups []models.Group
+	var groups []Group
 	if err := json.Unmarshal(groupJSON, &groups); err != nil || len(groups) == 0 {
 		respondError(w, http.StatusInternalServerError, "Server Error", "Failed to parse group response")
 		return
@@ -65,7 +62,7 @@ func (h *GroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 
 // GetGroups retrieves all groups for the authenticated user
 func (h *GroupHandler) GetGroups(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r)
+	userID := GetUserID(r)
 	if userID == "" {
 		respondError(w, http.StatusUnauthorized, "Unauthorized", "User ID not found")
 		return
@@ -77,7 +74,7 @@ func (h *GroupHandler) GetGroups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var groups []models.Group
+	var groups []Group
 	if err := json.Unmarshal(groupsJSON, &groups); err != nil {
 		respondError(w, http.StatusInternalServerError, "Server Error", "Failed to parse groups")
 		return
@@ -88,7 +85,7 @@ func (h *GroupHandler) GetGroups(w http.ResponseWriter, r *http.Request) {
 
 // DeleteGroup deletes a group
 func (h *GroupHandler) DeleteGroup(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r)
+	userID := GetUserID(r)
 	if userID == "" {
 		respondError(w, http.StatusUnauthorized, "Unauthorized", "User ID not found")
 		return

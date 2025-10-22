@@ -1,4 +1,4 @@
-package config
+package main
 
 import (
 	"fmt"
@@ -18,8 +18,8 @@ type Config struct {
 	AllowedOrigins       []string
 }
 
-// Load reads configuration from environment variables
-func Load() (*Config, error) {
+// LoadConfig reads configuration from environment variables
+func LoadConfig() (*Config, error) {
 	// Load .env file if it exists (ignore error if not found)
 	_ = godotenv.Load()
 
