@@ -10,6 +10,14 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+type Tab struct {
+	URL        string
+	Title      string
+	FaviconURL string
+	Position   int
+	CreatedAt  time.Time
+}
+
 func ExtractIDFromJWT(jwtToken string) (string, error) {
 	// Parse the JWT without verifying (for demo - for production always verify)
 	token, _, err := new(jwt.Parser).ParseUnverified(jwtToken, jwt.MapClaims{})
@@ -24,14 +32,6 @@ func ExtractIDFromJWT(jwtToken string) (string, error) {
 	}
 
 	return "", fmt.Errorf("user id (sub) not found in token")
-}
-
-type Tab struct {
-	URL        string
-	Title      string
-	FaviconURL string
-	Position   int
-	CreatedAt  time.Time
 }
 
 func AddWorkspaces(c *gin.Context) {
@@ -53,8 +53,7 @@ func AddWorkspaces(c *gin.Context) {
 	fmt.Println("User ID from JWT:", userID)
 
 	type AddWorkspaceRequest struct {
-		Tabs      []Tab     `json:"tabs" binding:"required"`
-		CreatedAt time.Time `json:"created_at" binding:"required"`
+		Tabs []Tab `json:"tabs" binding:"required"`
 	}
 
 	var req AddWorkspaceRequest
