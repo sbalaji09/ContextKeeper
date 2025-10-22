@@ -78,45 +78,76 @@ async function captureAllTabs() {
 
 // this closes all tabs in the current window and opens a new empty tab
 // called when the user captures their current window
+// NOTE: Dashboard tabs are preserved and not closed
 async function closeAllTabsAndOpenEmpty(windows) {
   try {
     console.log("🗑️ Closing tabs and opening new empty tab...");
 
-    // collect all tab IDs to close from the captured windows
+    // Dashboard URL patterns to preserve
+    const dashboardPatterns = [
+      'localhost:3000',
+      '/dashboard'
+    ];
+
+    // Helper function to check if a URL is the dashboard
+    const isDashboardUrl = (url) => {
+      if (!url) return false;
+      return dashboardPatterns.some(pattern => url.includes(pattern));
+    };
+
+    // collect all tab IDs to close from the captured windows (except dashboard)
     const tabIdsToClose = [];
+    const dashboardTabIds = [];
     let currentWindowId = null;
 
     for (const win of windows) {
       currentWindowId = win.id; // This is the current window
       for (const tab of (win.tabs || [])) {
         if (tab.id) {
-          tabIdsToClose.push(tab.id);
+          // Don't close dashboard tabs
+          if (isDashboardUrl(tab.url)) {
+            dashboardTabIds.push(tab.id);
+            console.log(`📋 Preserving dashboard tab: ${tab.url}`);
+          } else {
+            tabIdsToClose.push(tab.id);
+          }
         }
       }
     }
 
-    console.log(`Planning to close ${tabIdsToClose.length} tabs`);
+    console.log(`Planning to close ${tabIdsToClose.length} tabs (preserving ${dashboardTabIds.length} dashboard tabs)`);
 
     // Create a new empty tab in the CURRENT window (not a new window)
-    console.log(`Creating new tab in current window ${currentWindowId}`);
-    const newTab = await chrome.tabs.create({
-      windowId: currentWindowId,
-      active: true
-    });
-
-    console.log(`Created new tab with ID: ${newTab.id}`);
+    // Only create if there are no dashboard tabs already open
+    let newTab = null;
+    if (dashboardTabIds.length === 0) {
+      console.log(`Creating new tab in current window ${currentWindowId}`);
+      newTab = await chrome.tabs.create({
+        windowId: currentWindowId,
+        active: true
+      });
+      console.log(`Created new tab with ID: ${newTab.id}`);
+    } else {
+      console.log(`Skipping new tab creation - dashboard is already open`);
+      // Activate the first dashboard tab instead
+      await chrome.tabs.update(dashboardTabIds[0], { active: true });
+    }
 
     await new Promise(resolve => setTimeout(resolve, 300));
 
-    const tabsToRemove = tabIdsToClose.filter(id => id !== newTab.id);
-    console.log(`Closing ${tabsToRemove.length} tabs (excluding new tab ${newTab.id})`);
+    // Filter out the new tab ID if one was created
+    const tabsToRemove = newTab
+      ? tabIdsToClose.filter(id => id !== newTab.id)
+      : tabIdsToClose;
+
+    console.log(`Closing ${tabsToRemove.length} tabs (excluding new tab and dashboard)`);
 
     if (tabsToRemove.length > 0) {
       await chrome.tabs.remove(tabsToRemove);
       console.log("✅ Tabs closed successfully");
     }
 
-    console.log(`✅ Closed ${tabsToRemove.length} tabs and opened new empty tab in current window`);
+    console.log(`✅ Closed ${tabsToRemove.length} tabs, preserved ${dashboardTabIds.length} dashboard tabs`);
   } catch (err) {
     console.error("❌ Error closing tabs:", err);
     throw err;
