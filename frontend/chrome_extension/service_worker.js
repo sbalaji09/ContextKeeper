@@ -164,11 +164,6 @@ async function restoreSnapshot(key, autoDelete = true) {
   const currentWindowId = currentWindow.id;
   console.log(`Restoring tabs into current window ${currentWindowId}`);
 
-  // Close all existing tabs in the current window first
-  const existingTabs = await chrome.tabs.query({ windowId: currentWindowId });
-  const existingTabIds = existingTabs.map(t => t.id);
-  console.log(`Closing ${existingTabIds.length} existing tabs`);
-
   // Get all tabs to restore from the first window in the snapshot
   const winInfo = windows[0]; // Only restore the first window's tabs
   const urlsToRestore = winInfo.tabs.map(t => t.url).filter(url => url && !url.startsWith("chrome://"));
@@ -177,9 +172,9 @@ async function restoreSnapshot(key, autoDelete = true) {
     throw new Error("No valid URLs to restore");
   }
 
-  console.log(`Creating ${urlsToRestore.length} new tabs`);
+  console.log(`Adding ${urlsToRestore.length} tabs from snapshot to current window (existing tabs will be preserved)`);
 
-  // Create all the tabs in the current window
+  // Create all the tabs in the current window (preserving existing tabs)
   const newTabs = [];
   for (let i = 0; i < urlsToRestore.length; i++) {
     const url = urlsToRestore[i];
@@ -193,13 +188,6 @@ async function restoreSnapshot(key, autoDelete = true) {
     });
 
     newTabs.push({ tab: newTab, info: tabInfo });
-  }
-
-  // Now close the old tabs
-  if (existingTabIds.length > 0) {
-    await chrome.tabs.remove(existingTabIds).catch(err => {
-      console.warn("Failed to close some tabs:", err);
-    });
   }
 
   // Wait for tabs to load before restoring state
