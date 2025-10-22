@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -25,6 +26,14 @@ func ExtractIDFromJWT(jwtToken string) (string, error) {
 	return "", fmt.Errorf("user id (sub) not found in token")
 }
 
+type Tab struct {
+	URL        string
+	Title      string
+	FaviconURL string
+	Position   int
+	CreatedAt  time.Time
+}
+
 func AddWorkspaces(c *gin.Context) {
 	// You can uncomment JWT handling if needed:
 	authHeader := c.GetHeader("Authorization")
@@ -42,5 +51,17 @@ func AddWorkspaces(c *gin.Context) {
 		return
 	}
 	fmt.Println("User ID from JWT:", userID)
+
+	type AddWorkspaceRequest struct {
+		Tabs      []Tab     `json:"tabs" binding:"required"`
+		CreatedAt time.Time `json:"created_at" binding:"required"`
+	}
+
+	var req AddWorkspaceRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
+		return
+	}
 
 }
