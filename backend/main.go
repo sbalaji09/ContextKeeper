@@ -34,20 +34,12 @@ func InitDatabaseHandler(connString string) error {
 
 func main() {
 	// Load environment variables from .env file
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		log.Fatal("OPENAI_API_KEY is not set in environment")
-	}
-
-	// Use apiKey in your code as needed
-	log.Println("OPENAI_API_KEY loaded successfully")
 
 	connString := "postgresql://postgres.xrxswewhornndtjpwmkf:mLTwK4TAf9spNhuD@aws-0-us-west-1.pooler.supabase.com:5432/postgres?sslmode=require"
 	err := InitDatabaseHandler(connString)
 	if err != nil {
 		log.Fatal("Error connecting to database:", err)
 	}
-	log.Println("TEST PRINTING")
 
 	router := gin.Default()
 
