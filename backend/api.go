@@ -4,18 +4,16 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
 type Tab struct {
-	URL        string
-	Title      string
-	FaviconURL string
-	Position   int
-	CreatedAt  time.Time
+	URL        string  `json:"url"`
+	Title      *string `json:"title"`
+	FaviconURL *string `json:"favicon_url"`
+	Position   int     `json:"position"`
 }
 
 func ExtractIDFromJWT(jwtToken string) (string, error) {
@@ -53,7 +51,9 @@ func AddWorkspaces(c *gin.Context) {
 	fmt.Println("User ID from JWT:", userID)
 
 	type AddWorkspaceRequest struct {
-		Tabs []Tab `json:"tabs" binding:"required"`
+		Name        string  `json:"name" binding:"required"`
+		Description *string `json:"description"`
+		Tabs        []Tab   `json:"tabs" binding:"required"`
 	}
 
 	var req AddWorkspaceRequest
@@ -63,4 +63,17 @@ func AddWorkspaces(c *gin.Context) {
 		return
 	}
 
+	// Call the database layer to add workspace
+	workspaceID, err := Handler.AddWorkspace(userID, req.Name, req.Description, req.Tabs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create workspace: " + err.Error()})
+		return
+	}
+
+	// Return success response with workspace ID
+	c.JSON(http.StatusCreated, gin.H{
+		"success":      true,
+		"workspace_id": workspaceID,
+		"message":      "Workspace created successfully",
+	})
 }
