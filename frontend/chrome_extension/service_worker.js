@@ -70,6 +70,15 @@ async function captureAllTabs() {
 
   console.log("Captured snapshot:", key, snapshots);
 
+  // Sync to backend API (Supabase)
+  try {
+    await syncToBackend(snapshots);
+    console.log("✅ Synced to backend successfully");
+  } catch (error) {
+    console.error("❌ Failed to sync to backend:", error);
+    // Continue anyway - local storage still has the snapshot
+  }
+
   // close all tabs after capturing
   await closeAllTabsAndOpenEmpty(windows);
 
@@ -152,6 +161,65 @@ async function closeAllTabsAndOpenEmpty(windows) {
     console.error("❌ Error closing tabs:", err);
     throw err;
   }
+}
+
+// Syncs captured tabs to backend API (Supabase database)
+async function syncToBackend(snapshots) {
+  console.log("🔄 Syncing to backend...");
+
+  // Get Supabase session/token
+  const { supabaseToken } = await chrome.storage.local.get("supabaseToken");
+  if (!supabaseToken) {
+    throw new Error("No Supabase token found. Please log in to the dashboard first.");
+  }
+
+  // Backend API URL (configurable, defaults to localhost:8080)
+  const apiUrl = "http://localhost:8080";
+
+  // Extract tabs from first window
+  const winInfo = snapshots[0];
+  if (!winInfo || !winInfo.tabs || winInfo.tabs.length === 0) {
+    throw new Error("No tabs to sync");
+  }
+
+  // Generate workspace name from timestamp
+  const workspaceName = `Workspace ${new Date().toLocaleString()}`;
+
+  // Transform tabs to match API format
+  const tabs = winInfo.tabs.map((tab, index) => ({
+    url: tab.url,
+    title: tab.title || null,
+    favicon_url: tab.favIconUrl || null,
+    position: index
+  }));
+
+  // Prepare request payload
+  const payload = {
+    name: workspaceName,
+    description: `Captured on ${new Date().toLocaleString()}`,
+    tabs: tabs
+  };
+
+  console.log("📤 Sending to backend:", payload);
+
+  // Send to backend
+  const response = await fetch(`${apiUrl}/api/workspaces`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${supabaseToken}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Backend API error (${response.status}): ${errorText}`);
+  }
+
+  const result = await response.json();
+  console.log("✅ Backend response:", result);
+  return result;
 }
 
 // lists all saved workspace snapshots by reading items from chrome.storage.local

@@ -19,6 +19,17 @@ function Dashboard() {
       }
 
       setUser(session.user);
+
+      // Store token in chrome.storage for extension to use
+      if (window.chrome && chrome.storage) {
+        try {
+          await chrome.storage.local.set({ supabaseToken: session.access_token });
+          console.log("✅ Token saved to chrome.storage for extension");
+        } catch (err) {
+          console.log("ℹ️ Not running as extension, token not saved to chrome.storage");
+        }
+      }
+
       // Use Supabase auth user ID directly
       fetchWorkspaces(session.user.id);
     }
@@ -30,10 +41,19 @@ function Dashboard() {
     try {
       setLoading(true);
 
-      // Fetch workspaces for the current user
+      // Fetch workspaces with tabs for the current user
       const { data, error: fetchError } = await supabase
         .from('workspaces')
-        .select('*')
+        .select(`
+          *,
+          tabs (
+            id,
+            url,
+            title,
+            favicon_url,
+            position
+          )
+        `)
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 

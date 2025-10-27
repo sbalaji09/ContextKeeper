@@ -43,13 +43,25 @@ func main() {
 
 	router := gin.Default()
 
+	// Enable CORS for Chrome extension
+	router.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
+
 	router.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "pong",
 		})
 	})
-
-	// Commenting out undefined handlers for now
 
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -67,6 +79,9 @@ func main() {
 		}
 		c.JSON(http.StatusOK, gin.H{"time": now})
 	})
+
+	// Workspace endpoints
+	router.POST("/api/workspaces", AddWorkspaces)
 
 	port := os.Getenv("PORT")
 	if port == "" {
