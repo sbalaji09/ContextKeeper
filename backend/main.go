@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
@@ -33,10 +34,23 @@ func InitDatabaseHandler(connString string) error {
 }
 
 func main() {
-	// Load environment variables from .env file
+	// Load environment variables from .env file (optional for Docker)
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("Error loading .env file (this is OK if using Docker environment variables)")
+	}
 
-	connString := "postgresql://postgres.xrxswewhornndtjpwmkf:mLTwK4TAf9spNhuD@aws-0-us-west-1.pooler.supabase.com:5432/postgres?sslmode=require"
-	err := InitDatabaseHandler(connString)
+	// Get the connection string from the environment
+	connString := os.Getenv("POSTGRES_CONNECTION")
+	if connString == "" {
+		// Try DATABASE_URL as fallback (common in Docker/cloud deployments)
+		connString = os.Getenv("DATABASE_URL")
+	}
+	if connString == "" {
+		log.Fatal("POSTGRES_CONNECTION or DATABASE_URL environment variable must be set")
+	}
+
+	err = InitDatabaseHandler(connString)
 	if err != nil {
 		log.Fatal("Error connecting to database:", err)
 	}

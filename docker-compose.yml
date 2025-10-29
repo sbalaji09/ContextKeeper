@@ -1,40 +1,10 @@
-version: '3.8'
-
 services:
-  # Backend API Server
-  backend:
+  # ContextKeeper - Combined Backend + Frontend
+  app:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "3001:3001"
-    environment:
-      - PORT=3001
-      - ENVIRONMENT=${ENVIRONMENT:-production}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+    network_mode: host
+    env_file:
+      - .env
     restart: unless-stopped
-    networks:
-      - contextkeeper
-
-  # Frontend Dashboard (separate service if needed)
-  frontend:
-    build:
-      context: ./frontend/dashboard/context-keeper
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_SUPABASE_URL=${SUPABASE_URL}
-      - REACT_APP_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-    depends_on:
-      - backend
-    restart: unless-stopped
-    networks:
-      - contextkeeper
-
-networks:
-  contextkeeper:
-    driver: bridge

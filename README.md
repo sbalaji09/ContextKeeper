@@ -92,12 +92,21 @@ Dashboard runs on `http://localhost:3000`
 
 ```bash
 # Copy environment template
-cp backend/.env.example .env
+cp .env.example .env
 
-# Edit .env with your credentials
+# Edit .env with your Supabase and database credentials
 nano .env
 
-# Start all services
+# Required environment variables:
+# - DATABASE_URL or POSTGRES_CONNECTION (PostgreSQL connection string)
+# - SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+# - JWT_SECRET (for token signing)
+# - PORT (default: 8080)
+
+# Build and start all services
+docker-compose up --build
+
+# Run in detached mode
 docker-compose up -d
 
 # View logs
@@ -107,15 +116,21 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### Backend Only
+### Build Docker Image Only
 
 ```bash
-# Build
-docker build -t contextkeeper-backend .
+# Build the image
+docker build -t contextkeeper .
 
-# Run
-docker run --env-file backend/.env -p 3001:3001 contextkeeper-backend
+# Run with environment variables
+docker run -p 8080:8080 \
+  -e DATABASE_URL="postgresql://user:password@host:port/database" \
+  -e SUPABASE_URL="your-supabase-url" \
+  -e SUPABASE_ANON_KEY="your-anon-key" \
+  contextkeeper
 ```
+
+The Docker container includes both the Go backend and React frontend build.
 
 ## Configuration
 
