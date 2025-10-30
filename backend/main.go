@@ -75,21 +75,83 @@ func main() {
 
 	log.Printf("Connecting to Supabase project: %s", projectRef)
 
-	// Build connection string for Supabase PostgreSQL
-	// Supabase uses direct connection format: db.{project-ref}.supabase.co
-	// Add connect_timeout to fail faster if connection issues occur
-	connString := fmt.Sprintf(
-		"host=db.%s.supabase.co port=5432 user=postgres password=%s dbname=postgres sslmode=require connect_timeout=10",
-		projectRef,
-		supabaseDBPassword,
-	)
+	var connectionEstablished bool
 
-	log.Printf("Attempting connection to: db.%s.supabase.co:5432", projectRef)
-
-	err = InitDatabaseHandler(connString)
-	if err != nil {
-		log.Fatal("Error connecting to database:", err)
+	// Option 0: Try DATABASE_URL if provided (exact connection string from Supabase)
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL != "" {
+		log.Printf("Found DATABASE_URL, attempting connection...")
+		err = InitDatabaseHandler(databaseURL)
+		if err == nil {
+			log.Printf("✅ Connected using DATABASE_URL!")
+			connectionEstablished = true
+		} else {
+			log.Printf("⚠️ DATABASE_URL failed: %v", err)
+		}
 	}
+
+	if !connectionEstablished {
+		// Option 1: Try direct connection first (most reliable)
+		log.Printf("Attempting direct connection...")
+		connString := fmt.Sprintf(
+			"postgresql://postgres:%s@db.%s.supabase.co:5432/postgres?sslmode=require",
+			supabaseDBPassword,
+			projectRef,
+		)
+		err = InitDatabaseHandler(connString)
+		if err == nil {
+			log.Printf("✅ Connected via direct connection!")
+			connectionEstablished = true
+		} else {
+			log.Printf("⚠️ Direct connection failed: %v", err)
+		}
+	}
+
+	if !connectionEstablished {
+		// Option 2: Try us-west-1 session pooler (port 5432)
+		log.Printf("Attempting us-west-1 session pooler (port 5432)...")
+		connString := fmt.Sprintf(
+			"postgresql://postgres.%s:%s@aws-1-us-west-1.pooler.supabase.com:5432/postgres?sslmode=require",
+			projectRef,
+			supabaseDBPassword,
+		)
+		err = InitDatabaseHandler(connString)
+		if err == nil {
+			log.Printf("✅ Connected via us-west-1 session pooler!")
+			connectionEstablished = true
+		} else {
+			log.Printf("⚠️ us-west-1 session pooler failed: %v", err)
+		}
+	}
+
+	if !connectionEstablished {
+		// Option 3: Try us-west-1 transaction pooler (port 6543)
+		log.Printf("Attempting us-west-1 transaction pooler (port 6543)...")
+		connString := fmt.Sprintf(
+			"postgresql://postgres.%s:%s@aws-1-us-west-1.pooler.supabase.com:6543/postgres?sslmode=require",
+			projectRef,
+			supabaseDBPassword,
+		)
+		err = InitDatabaseHandler(connString)
+		if err == nil {
+			log.Printf("✅ Connected via us-west-1 transaction pooler!")
+			connectionEstablished = true
+		} else {
+			log.Printf("⚠️ us-west-1 transaction pooler failed: %v", err)
+		}
+	}
+
+
+	if !connectionEstablished {
+		log.Fatal("❌ All connection attempts failed.\n" +
+			"Please check:\n" +
+			"1. SUPABASE_DB_PASSWORD is correct (reset in Supabase dashboard if needed)\n" +
+			"2. No special characters in password (or URL-encode them)\n" +
+			"3. Or set DATABASE_URL with exact connection string from Supabase\n" +
+			"Last error: " + err.Error())
+	}
+
+	log.Printf("✅ Database connection established!")
 
 	router := gin.Default()
 
