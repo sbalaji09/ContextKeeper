@@ -28,7 +28,7 @@ ContextKeeper/
 │   └── dashboard/             # React dashboard
 │       └── context-keeper/
 │           ├── src/
-│           └── package.json
+│           └���─ package.json
 ├── database/
 │   ├── supabase_schema.sql    # PostgreSQL schema for Supabase
 │   └── init.sql               # SQLite schema (local dev)
@@ -88,25 +88,24 @@ Dashboard runs on `http://localhost:3000`
 
 ## Docker Deployment
 
+**See [DOCKER_SETUP.md](DOCKER_SETUP.md) for detailed setup instructions.**
+
 ### Quick Start with Docker Compose
 
 ```bash
-# Copy environment template
+# 1. Copy environment template
 cp .env.example .env
 
-# Edit .env with your Supabase and database credentials
+# 2. Edit .env with your Supabase credentials
 nano .env
 
-# Required environment variables:
-# - DATABASE_URL or POSTGRES_CONNECTION (PostgreSQL connection string)
-# - SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
-# - JWT_SECRET (for token signing)
-# - PORT (default: 8080)
+# Required: SUPABASE_URL, SUPABASE_DB_PASSWORD
+# Get these from: https://supabase.com/dashboard/project/_/settings
 
-# Build and start all services
+# 3. Build and start
 docker-compose up --build
 
-# Run in detached mode
+# Or run in background
 docker-compose up -d
 
 # View logs
@@ -124,28 +123,32 @@ docker build -t contextkeeper .
 
 # Run with environment variables
 docker run -p 8080:8080 \
-  -e DATABASE_URL="postgresql://user:password@host:port/database" \
-  -e SUPABASE_URL="your-supabase-url" \
+  -e SUPABASE_URL="https://xxxxx.supabase.co" \
+  -e SUPABASE_DB_PASSWORD="your-db-password" \
   -e SUPABASE_ANON_KEY="your-anon-key" \
   contextkeeper
 ```
 
-The Docker container includes both the Go backend and React frontend build.
+**Note:** The Docker container includes both the Go backend and React frontend build. The backend automatically connects to your Supabase PostgreSQL database - no separate database setup needed!
 
 ## Configuration
 
 ### Backend Environment Variables
 
 ```env
-PORT=3001
-ENVIRONMENT=development
-
+# Supabase Configuration
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_DB_PASSWORD=your-database-password
+SUPABASE_REGION=us-east-1  # optional, defaults to us-east-1
 
-ALLOWED_ORIGINS=http://localhost:3000,chrome-extension://your-extension-id
+# Server Configuration
+PORT=8080
+ENVIRONMENT=development
 ```
+
+See [DOCKER_SETUP.md](DOCKER_SETUP.md) for detailed setup instructions.
 
 ### Frontend Environment Variables
 

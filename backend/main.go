@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -40,15 +41,50 @@ func main() {
 		log.Println("Error loading .env file (this is OK if using Docker environment variables)")
 	}
 
-	// Get the connection string from the environment
-	connString := os.Getenv("POSTGRES_CONNECTION")
-	if connString == "" {
-		// Try DATABASE_URL as fallback (common in Docker/cloud deployments)
-		connString = os.Getenv("DATABASE_URL")
+	// Build Supabase PostgreSQL connection string
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	supabaseDBPassword := os.Getenv("SUPABASE_DB_PASSWORD")
+
+	if supabaseURL == "" || supabaseDBPassword == "" {
+		log.Fatal("SUPABASE_URL and SUPABASE_DB_PASSWORD environment variables must be set.\n" +
+			"Example: SUPABASE_URL=https://xxxxx.supabase.co\n" +
+			"Get these from: https://supabase.com/dashboard/project/_/settings/api")
 	}
-	if connString == "" {
-		log.Fatal("POSTGRES_CONNECTION or DATABASE_URL environment variable must be set")
+
+	// Validate SUPABASE_URL format
+	if len(supabaseURL) < 10 || (!strings.HasPrefix(supabaseURL, "https://") && !strings.HasPrefix(supabaseURL, "http://")) {
+		log.Fatalf("SUPABASE_URL must be a valid URL (e.g., https://xxxxx.supabase.co), got: %s", supabaseURL)
 	}
+
+	// Extract project reference from Supabase URL
+	// Format: https://xxxxx.supabase.co -> xxxxx
+	projectRef := ""
+	urlWithoutProtocol := strings.TrimPrefix(supabaseURL, "https://")
+	urlWithoutProtocol = strings.TrimPrefix(urlWithoutProtocol, "http://")
+
+	dotIndex := strings.Index(urlWithoutProtocol, ".")
+	if dotIndex > 0 {
+		projectRef = urlWithoutProtocol[:dotIndex]
+	}
+
+	if projectRef == "" || len(projectRef) < 10 {
+		log.Fatalf("Could not extract valid project reference from SUPABASE_URL: %s\n"+
+			"Expected format: https://xxxxx.supabase.co\n"+
+			"Extracted: '%s'", supabaseURL, projectRef)
+	}
+
+	log.Printf("Connecting to Supabase project: %s", projectRef)
+
+	// Build connection string for Supabase PostgreSQL
+	// Supabase uses direct connection format: db.{project-ref}.supabase.co
+	// Add connect_timeout to fail faster if connection issues occur
+	connString := fmt.Sprintf(
+		"host=db.%s.supabase.co port=5432 user=postgres password=%s dbname=postgres sslmode=require connect_timeout=10",
+		projectRef,
+		supabaseDBPassword,
+	)
+
+	log.Printf("Attempting connection to: db.%s.supabase.co:5432", projectRef)
 
 	err = InitDatabaseHandler(connString)
 	if err != nil {
